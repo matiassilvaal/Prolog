@@ -42,7 +42,7 @@ Fecha: un date que representa la fecha de creación
 Entrega en el ultimo parametro una lista con estas 3 variables, siempre que cumplan las condiciones
 definidas para cada una.
 */
-user(Username,Password,Fecha, [Username,Password,Fecha]):-
+user(Username,Password,Fecha, [[Username,Password,Fecha]]):-
         string(Username), string(Password), isDate(Fecha).
 
 /*
@@ -129,3 +129,26 @@ getUsersP([_,_,Users,_,_,_], Users).
 getDocumentsP([_,_,_,Documents,_,_], Documents).
 getAccessesP([_,_,_,_,Accesses,_], Accesses).
 getOnlineUserP([_,_,_,_,_,User], User).
+
+% Pertenencia usuario
+alreadyExists([[Username,_,_]|_], Username):- !.
+alreadyExists([[_,_,_]|L], Username):-
+            alreadyExists(L,Username).
+
+% Modificadores de TDA paradigmaDocs
+addUserP(Sn1, User, Sn2):-
+        getNameP(Sn1, NombreP),
+        getDateP(Sn1, Fecha),
+        getUsersP(Sn1, Usuarios),
+        getDocumentsP(Sn1, Documentos),
+        getAccessesP(Sn1, Accesos),
+        getOnlineUserP(Sn1, Online),
+        append(Usuarios, User, NuevaListaUsuarios),
+        Sn2 = [NombreP, Fecha, NuevaListaUsuarios, Documentos, Accesos, Online], !.
+
+% Funciones
+paradigmaDocsRegister(Sn1, Fecha, Username, Password, Sn2):-
+        getUsersP(Sn1, Usuarios),
+        not(alreadyExists(Usuarios, Username)),
+        user(Username, Password, Fecha, NuevoUsuario),
+        addUserP(Sn1, NuevoUsuario, Sn2).
