@@ -129,7 +129,10 @@ getUsersP([_,_,Users,_,_,_], Users).
 getDocumentsP([_,_,_,Documents,_,_], Documents).
 getAccessesP([_,_,_,_,Accesses,_], Accesses).
 getOnlineUserP([_,_,_,_,_,User], User).
-
+%
+getUserPassword([[Username,Password,_]|_],Username, Password):- !.
+getUserPassword([[_,_,_]|Tail],Username,Password):-
+        getUserPassword(Tail,Username,Password),!.
 % Pertenencia usuario
 alreadyExists([[Username,_,_]|_], Username):- !.
 alreadyExists([[_,_,_]|L], Username):-
@@ -145,10 +148,23 @@ addUserP(Sn1, User, Sn2):-
         getOnlineUserP(Sn1, Online),
         append(Usuarios, User, NuevaListaUsuarios),
         Sn2 = [NombreP, Fecha, NuevaListaUsuarios, Documentos, Accesos, Online], !.
-
+setOnlineUser(Sn1, Username, Sn2):-
+        getNameP(Sn1, NombreP),
+        getDateP(Sn1, Fecha),
+        getUsersP(Sn1, Usuarios),
+        getDocumentsP(Sn1, Documentos),
+        getAccessesP(Sn1, Accesos),
+        Sn2 = [NombreP, Fecha, Usuarios, Documentos, Accesos, Username], !.
 % Funciones
 paradigmaDocsRegister(Sn1, Fecha, Username, Password, Sn2):-
         getUsersP(Sn1, Usuarios),
         not(alreadyExists(Usuarios, Username)),
         user(Username, Password, Fecha, NuevoUsuario),
         addUserP(Sn1, NuevoUsuario, Sn2).
+
+paradigmaDocsLogin(Sn1, Username, Password, Sn2):-
+        getUsersP(Sn1, Usuarios),
+        alreadyExists(Usuarios, Username),
+        getUserPassword(Usuarios, Username, PasswordOut),
+        PasswordOut = Password,
+        setOnlineUser(Sn1, Username, Sn2).
