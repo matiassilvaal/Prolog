@@ -67,26 +67,27 @@ VersionsDoc: una lista que incluye una ID de version y el texto de la misma
 Entrega en el ultimo parametro una lista con estas 5 variables, siempre que cumplan las condiciones
 definidas para cada una.
 */
-document(IdDoc,NombreDoc,TextoDoc,FechaDoc,VersionsDoc, [IdDoc,NombreDoc,TextoDoc,FechaDoc,VersionsDoc]):-
-        number(IdDoc), string(NombreDoc), string(TextoDoc), isDate(FechaDoc), is_list(VersionsDoc), (IdDoc > 0; IdDoc = 0).
+document(IdDoc,Creador,NombreDoc,TextoDoc,FechaDoc,VersionsDoc, [[IdDoc,Creador,NombreDoc,TextoDoc,FechaDoc,VersionsDoc]]):-
+        number(IdDoc), string(Creador), string(NombreDoc), string(TextoDoc), isDate(FechaDoc), is_list(VersionsDoc), (IdDoc > 0; IdDoc = 0).
 
 /*
 Predicado de pertencia al TDA document, funciona si el constructor es capaz de crear un document
 Dominio: document List
 */
-isDocument([IdDoc,NombreDoc,TextoDoc,FechaDoc,VersionsDoc]) :-
-        document(IdDoc,NombreDoc,TextoDoc,FechaDoc,VersionsDoc,_).
+isDocument([IdDoc,Creador,NombreDoc,TextoDoc,FechaDoc,VersionsDoc]) :-
+        document(IdDoc,Creador,NombreDoc,TextoDoc,FechaDoc,VersionsDoc,_).
 
 % Selectores de TDA user
-getIdDoc([IdDoc,_,_,_,_], IdDoc).
-getNombreDoc([_,NombreDoc,_,_,_], NombreDoc).
-getTextoDoc([_,_,TextoDoc,_,_], TextoDoc).
-getFechaDoc([_,_,_,FechaDoc,_], FechaDoc).
-getVersionsDoc([_,_,_,_,VersionsDoc], VersionsDoc).
+getIdDoc([IdDoc,_,_,_,_,_], IdDoc).
+getCreadorDoc([_,Creador,_,_,_,_], Creador).
+getNombreDoc([_,_,NombreDoc,_,_,_], NombreDoc).
+getTextoDoc([_,_,_,TextoDoc,_,_], TextoDoc).
+getFechaDoc([_,_,_,_,FechaDoc,_], FechaDoc).
+getVersionsDoc([_,_,_,_,_,VersionsDoc], VersionsDoc).
 getVersionID([IdVersion|_], IdVersion).
-getFirstVersion([X|_],  X).
-getLastVersion([X], X):-!.
-getLastVersion([_|L], X) :- getLastVersion(L, X).
+getFirstElement([X|_],  X).
+getLastElement([X], X):-!.
+getLastElement([_|L], X) :- getLastElement(L, X).
 
 /*
 TDA access.
@@ -96,7 +97,7 @@ ListAccess: Un list que representa los accesos que tiene un usuario ej: ["W", "R
 Entrega en el ultimo parametro una lista con estas 3 variables, siempre que cumplan las condiciones
 definidas para cada una.
 */
-access(IdDocAccess, UsernameAccess, ListAccess, [IdDocAccess, UsernameAccess, ListAccess]):-
+access(IdDocAccess, UsernameAccess, ListAccess, [[IdDocAccess, UsernameAccess, ListAccess]]):-
         number(IdDocAccess), string(UsernameAccess), is_list(ListAccess).
 
 /*
@@ -133,9 +134,15 @@ getOnlineUserP([_,_,_,_,_,User], User).
 getUserPassword([[Username,Password,_]|_],Username, Password):- !.
 getUserPassword([[_,_,_]|Tail],Username,Password):-
         getUserPassword(Tail,Username,Password),!.
+getLastIdDocument(Documentos, ID):-
+        (Documentos = []),
+        ID is -1, !.
+getLastIdDocument(Documentos, ID):-
+        getLastElement(Documentos, Lista),
+        getFirstElement(Lista, ID).
 % Pertenencia usuario
 alreadyExists([[Username,_,_]|_], Username):- !.
-alreadyExists([[_,_,_]|L], Username):-
+alreadyExists([_|L], Username):-
             alreadyExists(L,Username).
 
 % Modificadores de TDA paradigmaDocs
@@ -168,3 +175,32 @@ paradigmaDocsLogin(Sn1, Username, Password, Sn2):-
         getUserPassword(Usuarios, Username, PasswordOut),
         PasswordOut = Password,
         setOnlineUser(Sn1, Username, Sn2).
+
+paradigmaDocsCreate(Sn1, Fecha, Nombre, Contenido, Sn2):-
+        getOnlineUserP(Sn1, OnlineUser),
+        OnlineUser \= "",
+        getDocumentsP(Sn1, Documentos),
+        getLastIdDocument(Documentos, ID),
+        (ID = -1),
+        ID2 is ID+1,
+        document(ID2,OnlineUser,Nombre,Contenido,Fecha,[], NuevoDoc),
+        getNameP(Sn1, NombreP),
+        getDateP(Sn1, Fecha),
+        getUsersP(Sn1, Usuarios),
+        getAccessesP(Sn1, Accesos),
+        append(Documentos, NuevoDoc, NuevosDocumentos),
+        Sn2 = [NombreP, Fecha, Usuarios, NuevosDocumentos, Accesos, ""], !.
+
+paradigmaDocsCreate(Sn1, Fecha, Nombre, Contenido, Sn2):-
+        getOnlineUserP(Sn1, OnlineUser),
+        OnlineUser \= "",
+        getDocumentsP(Sn1, Documentos),
+        getLastIdDocument(Documentos, ID),
+        ID2 is ID+1,
+        document(ID2,OnlineUser,Nombre,Contenido,Fecha,[], NuevoDoc),
+        getNameP(Sn1, NombreP),
+        getDateP(Sn1, Fecha),
+        getUsersP(Sn1, Usuarios),
+        getAccessesP(Sn1, Accesos),
+        append(Documentos, NuevoDoc, NuevosDocumentos),
+        Sn2 = [NombreP, Fecha, Usuarios, NuevosDocumentos, Accesos, ""],!.
