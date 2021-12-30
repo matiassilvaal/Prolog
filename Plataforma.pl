@@ -42,7 +42,7 @@ Fecha: un date que representa la fecha de creación
 Entrega en el ultimo parametro una lista con estas 3 variables, siempre que cumplan las condiciones
 definidas para cada una.
 */
-user(Username,Password,Fecha, [[Username,Password,Fecha]]):-
+user(Username,Password,Fecha, [Username,Password,Fecha]):-
         string(Username), string(Password), isDate(Fecha).
 
 /*
@@ -67,7 +67,7 @@ VersionsDoc: una lista que incluye una ID de version y el texto de la misma
 Entrega en el ultimo parametro una lista con estas 5 variables, siempre que cumplan las condiciones
 definidas para cada una.
 */
-document(IdDoc,Creador,NombreDoc,TextoDoc,FechaDoc,VersionsDoc, [[IdDoc,Creador,NombreDoc,TextoDoc,FechaDoc,VersionsDoc]]):-
+document(IdDoc,Creador,NombreDoc,TextoDoc,FechaDoc,VersionsDoc, [IdDoc,Creador,NombreDoc,TextoDoc,FechaDoc,VersionsDoc]):-
         number(IdDoc), string(Creador), string(NombreDoc), string(TextoDoc), isDate(FechaDoc), is_list(VersionsDoc), (IdDoc > 0; IdDoc = 0).
 
 /*
@@ -97,7 +97,7 @@ ListAccess: Un list que representa los accesos que tiene un usuario ej: ["W", "R
 Entrega en el ultimo parametro una lista con estas 3 variables, siempre que cumplan las condiciones
 definidas para cada una.
 */
-access(IdDocAccess, UsernameAccess, ListAccess, [[IdDocAccess, UsernameAccess, ListAccess]]):-
+access(IdDocAccess, UsernameAccess, ListAccess, [IdDocAccess, UsernameAccess, ListAccess]):-
         number(IdDocAccess), string(UsernameAccess), is_list(ListAccess).
 
 /*
@@ -144,7 +144,46 @@ getLastIdDocument(Documentos, ID):-
 alreadyExists([[Username,_,_]|_], Username):- !.
 alreadyExists([_|L], Username):-
             alreadyExists(L,Username).
+% Otros, agregar un elemento a una lista cualquiera
+addAux(_,Lista):-
+        Lista=[], !.
+addAux(H,[H2|T2]):-
+        H\=H2, addAux(H, T2).
 
+addItemToList(Entrada, ListaOriginal, Salida):-
+        number(Entrada), addAux(Entrada, ListaOriginal), append(ListaOriginal, [Entrada], Salida), !.
+addItemToList([H|T], [H2|T2], Salida):-
+        addAux(H, [H2|T2]), append([H2|T2], [H] , ListaAux), addItemToList(T, ListaAux, Salida), !.
+addItemToList([_|T], ListaOriginal, Salida):-
+        addItemToList(T,ListaOriginal,Salida), !.
+addItemToList(_, ListaOriginal, Salida):- Salida = ListaOriginal.
+% [0, "Nombre", ["Elem1", "Elem2"]], Comprobar si existe un permiso
+existePermiso([[A,B,_]|_], A,B):- !.
+existePermiso([_|L], A,B):-
+        existePermiso(L,A,B).
+% Buscar y agregar un permiso si existe, sino simplemente agregarlo
+buscaryagregar(Entrada, ListaOriginal, Salida):-
+        ListaOriginal=[[]], Salida = [Entrada].
+buscaryagregar(Entrada, ListaOriginal, Salida):-
+        getIdDocAccess(Entrada, ID), getUsernameAccess(Entrada, Nombre), not(existePermiso(ListaOriginal, ID, Nombre)),
+        append(ListaOriginal, [Entrada], Salida), !.
+buscaryagregar(Entrada, [[C,D,E]|F], Salida):-
+        getIdDocAccess(Entrada, ID), getUsernameAccess(Entrada, Nombre), getListAccess(Entrada, Lista),
+        ID=C,Nombre=D,addItemToList(E,Lista,Aux), append([[ID,Nombre,Aux]], F, Salida),!.
+buscaryagregar(Entrada, [[_,_,_]|F], Salida):-
+        getIdDocAccess(Entrada, ID), getUsernameAccess(Entrada, Nombre), getListAccess(Entrada, Lista),
+        buscaryagregar([ID,Nombre,Lista], F, Salida).
+buscaryagregar(_,Lista,_):-
+        Lista = [].
+% Auxiliar pal share
+agregar(Sn1, ID, Permisos, [H|T], ListaOriginal, Salida):-
+        getUsersP(Sn1, Usuarios), not(alreadyExists(Usuarios, H)), write("PEO"), agregar(Sn1, ID, Permisos, T, ListaOriginal, Salida),!.
+agregar(Sn1, ID, Permisos, [H|T], ListaOriginal, Salida):-
+        T=[], getUsersP(Sn1, Usuarios), alreadyExists(Usuarios, H), access(ID, H, Permisos, Acceso), buscaryagregar(Acceso, ListaOriginal, NuevoAccesos),
+        Salida = NuevoAccesos, !.
+agregar(Sn1, ID, Permisos, [H|T], ListaOriginal, Salida):-
+        getUsersP(Sn1, Usuarios), alreadyExists(Usuarios, H), access(ID, H, Permisos, Acceso), buscaryagregar(Acceso, ListaOriginal, NuevoAccesos),
+        agregar(Sn1, ID, Permisos, T, NuevoAccesos, Salida),!.
 % Modificadores de TDA paradigmaDocs
 addUserP(Sn1, User, Sn2):-
         getNameP(Sn1, NombreP),
@@ -153,7 +192,7 @@ addUserP(Sn1, User, Sn2):-
         getDocumentsP(Sn1, Documentos),
         getAccessesP(Sn1, Accesos),
         getOnlineUserP(Sn1, Online),
-        append(Usuarios, User, NuevaListaUsuarios),
+        append(Usuarios, [User], NuevaListaUsuarios),
         Sn2 = [NombreP, Fecha, NuevaListaUsuarios, Documentos, Accesos, Online], !.
 setOnlineUser(Sn1, Username, Sn2):-
         getNameP(Sn1, NombreP),
@@ -183,12 +222,12 @@ paradigmaDocsCreate(Sn1, Fecha, Nombre, Contenido, Sn2):-
         getLastIdDocument(Documentos, ID),
         (ID = -1),
         ID2 is ID+1,
-        document(ID2,OnlineUser,Nombre,Contenido,Fecha,[], NuevoDoc),
+        document(ID2,OnlineUser,Nombre,Contenido,Fecha,[Contenido], NuevoDoc),
         getNameP(Sn1, NombreP),
         getDateP(Sn1, Fecha),
         getUsersP(Sn1, Usuarios),
         getAccessesP(Sn1, Accesos),
-        append(Documentos, NuevoDoc, NuevosDocumentos),
+        append(Documentos, [NuevoDoc], NuevosDocumentos),
         Sn2 = [NombreP, Fecha, Usuarios, NuevosDocumentos, Accesos, ""], !.
 
 paradigmaDocsCreate(Sn1, Fecha, Nombre, Contenido, Sn2):-
@@ -197,10 +236,22 @@ paradigmaDocsCreate(Sn1, Fecha, Nombre, Contenido, Sn2):-
         getDocumentsP(Sn1, Documentos),
         getLastIdDocument(Documentos, ID),
         ID2 is ID+1,
-        document(ID2,OnlineUser,Nombre,Contenido,Fecha,[], NuevoDoc),
+        document(ID2,OnlineUser,Nombre,Contenido,Fecha,[Contenido], NuevoDoc),
         getNameP(Sn1, NombreP),
         getDateP(Sn1, Fecha),
         getUsersP(Sn1, Usuarios),
         getAccessesP(Sn1, Accesos),
-        append(Documentos, NuevoDoc, NuevosDocumentos),
+        append(Documentos, [NuevoDoc], NuevosDocumentos),
         Sn2 = [NombreP, Fecha, Usuarios, NuevosDocumentos, Accesos, ""],!.
+
+paradigmaDocsShare(Sn1, DocumentId, ListaPermisos, ListaUsernamesPermitidos, Sn2):-
+        getOnlineUserP(Sn1, OnlineUser),
+        OnlineUser \= "",
+        getNameP(Sn1, NombreP),
+        getDateP(Sn1, Fecha),
+        getUsersP(Sn1, Usuarios),
+        getDocumentsP(Sn1, Documentos),
+        getAccessesP(Sn1, Accesos),
+        write(Accesos),
+        agregar(Sn1, DocumentId, ListaPermisos, ListaUsernamesPermitidos, Accesos, NuevoAccesos),
+        Sn2 = [NombreP, Fecha, Usuarios, Documentos, NuevoAccesos, ""],!.
