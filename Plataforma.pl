@@ -45,13 +45,6 @@ definidas para cada una.
 user(Username,Password,Fecha, [Username,Password,Fecha]):-
         string(Username), string(Password), isDate(Fecha).
 
-/*
-Predicado de pertencia al TDA user, funciona si el constructor es capaz de crear un user
-Dominio: user List
-*/
-isUser([Username,Password,Fecha]) :-
-        user(Username,Password,Fecha,_).
-
 % Selectores de TDA user
 getUsername([Nombre,_,_], Nombre).
 getPassword([_,Password,_], Password).
@@ -70,21 +63,15 @@ definidas para cada una.
 document(IdDoc,Creador,NombreDoc,TextoDoc,FechaDoc,VersionsDoc, [IdDoc,Creador,NombreDoc,TextoDoc,FechaDoc,VersionsDoc]):-
         number(IdDoc), string(Creador), string(NombreDoc), string(TextoDoc), isDate(FechaDoc), is_list(VersionsDoc), (IdDoc > 0; IdDoc = 0).
 
-/*
-Predicado de pertencia al TDA document, funciona si el constructor es capaz de crear un document
-Dominio: document List
-*/
-isDocument([IdDoc,Creador,NombreDoc,TextoDoc,FechaDoc,VersionsDoc]) :-
-        document(IdDoc,Creador,NombreDoc,TextoDoc,FechaDoc,VersionsDoc,_).
-
-% Selectores de TDA user
+% Selectores de TDA Document
 getIdDoc([IdDoc,_,_,_,_,_], IdDoc).
 getCreadorDoc([_,Creador,_,_,_,_], Creador).
 getNombreDoc([_,_,NombreDoc,_,_,_], NombreDoc).
 getTextoDoc([_,_,_,TextoDoc,_,_], TextoDoc).
 getFechaDoc([_,_,_,_,FechaDoc,_], FechaDoc).
 getVersionsDoc([_,_,_,_,_,VersionsDoc], VersionsDoc).
-getVersionID([IdVersion|_], IdVersion).
+getVersionID([IdVersion,_], IdVersion).
+getVersionTexto([_,TextoVersion], TextoVersion).
 getFirstElement([X|_],  X).
 getLastElement([X], X):-!.
 getLastElement([_|L], X) :- getLastElement(L, X).
@@ -99,13 +86,6 @@ definidas para cada una.
 */
 access(IdDocAccess, UsernameAccess, ListAccess, [IdDocAccess, UsernameAccess, ListAccess]):-
         number(IdDocAccess), string(UsernameAccess), is_list(ListAccess).
-
-/*
-Predicado de pertencia al TDA access, funciona si el constructor es capaz de crear un access
-Dominio: access List
-*/
-isAccess([IdDocAccess, UsernameAccess, ListAccess]):-
-        access(IdDocAccess, UsernameAccess, ListAccess,_).
 
 % Selectores de TDA access
 getIdDocAccess([IdDocAccess,_,_], IdDocAccess).
@@ -150,6 +130,8 @@ addAux(_,Lista):-
 addAux(H,[H2|T2]):-
         H\=H2, addAux(H, T2).
 
+miembro(X, [Y|T]) :- X = Y; miembro(X, T), !.
+
 addItemToList(Entrada, ListaOriginal, Salida):-
         number(Entrada), addAux(Entrada, ListaOriginal), append(ListaOriginal, [Entrada], Salida), !.
 addItemToList([H|T], [H2|T2], Salida):-
@@ -175,21 +157,81 @@ buscaryagregar(Entrada, PrimeraParte, [[C,D,E]|F], Salida):-
         append([[C,D,E]], PrimeraParte, Aux), buscaryagregar([ID,Nombre,Lista], Aux, F, Salida).
 % Auxiliar pal share
 agregar(ID, Permisos, [H|T], ListaOriginal, Salida):-
-        T=[], access(ID, H, Permisos, Acceso), write(Acceso), buscaryagregar(Acceso, [], ListaOriginal, NuevoAccesos),
+        T=[], access(ID, H, Permisos, Acceso), buscaryagregar(Acceso, [], ListaOriginal, NuevoAccesos),
         Salida = NuevoAccesos, !.
 agregar(ID, Permisos, [H|T], ListaOriginal, Salida):-
-        access(ID, H, Permisos, Acceso), write(Acceso), buscaryagregar(Acceso, [], ListaOriginal, NuevoAccesos),
+        access(ID, H, Permisos, Acceso), buscaryagregar(Acceso, [], ListaOriginal, NuevoAccesos),
         agregar(ID, Permisos, T, NuevoAccesos, Salida),!.
 
-addTexto(ID, Date, Nombre, NuevoTexto, PrimeraParte, [Primero|T], Salida):-
+canWrite(ID, Nombre, [H|_], Nombre):-
+        getIdDocAccess(H, IdActual), getUsernameAccess(H, NombreActual),
+        ID = IdActual, Nombre = NombreActual,
+        getListAccess(H, Accesos),
+        miembro("w", Accesos),!.
+canWrite(ID, Nombre, [_|T], Nombre):-
+        canWrite(ID, Nombre, T, Nombre).
+        canWrite(_, _, [_|T], Nombre):-
+                T = [], Nombre = "".
+% Auxiliar pal add el primero es si ya existe una version, el segundo pa la primera version, y el tercero pa ir avanzando
+addTexto(ID, Date, Nombre, NuevoTexto, PrimeraParte, [Primero|T], _, Salida):-
         getIdDoc(Primero, IdDoc), getCreadorDoc(Primero, Creador),
         ID=IdDoc, Nombre=Creador, getTextoDoc(Primero, Texto),
         string_concat(Texto, NuevoTexto, TextoSalida),
         getVersionsDoc(Primero, VersionsDoc), getNombreDoc(Primero, NombreDoc),
-        append(VersionsDoc, [NuevoTexto], VersionsNuevas),
+        last(VersionsDoc, Last),
+        getVersionID(Last, LastID),
+        LastIdAux is LastID+1,
+        append(VersionsDoc, [[LastIdAux, NuevoTexto]], VersionsNuevas), write(0),
         document(ID,Creador,NombreDoc,TextoSalida,Date,VersionsNuevas,Aux), append(PrimeraParte, [Aux], Aux2), append(Aux2, T, Salida), !.
-addTexto(ID, Date, Nombre, NuevoTexto, PrimeraParte, [H|T], Salida):-
-        append(PrimeraParte, [H], Aux), addTexto(ID, Date, Nombre, NuevoTexto, Aux, T, Salida), !.
+addTexto(ID, Date, Nombre, NuevoTexto, PrimeraParte, [Primero|T], Accesos, Salida):-
+        getIdDoc(Primero, IdDoc), getCreadorDoc(Primero, Creador), canWrite(ID, Nombre, Accesos, Usuario),
+        ID=IdDoc, Usuario\="", getTextoDoc(Primero, Texto),
+        string_concat(Texto, NuevoTexto, TextoSalida),
+        getVersionsDoc(Primero, VersionsDoc), getNombreDoc(Primero, NombreDoc),
+        last(VersionsDoc, Last),
+        getVersionID(Last, LastID),
+        LastIdAux is LastID+1,
+        append(VersionsDoc, [[LastIdAux, NuevoTexto]], VersionsNuevas),
+        document(ID,Creador,NombreDoc,TextoSalida,Date,VersionsNuevas,Aux), append(PrimeraParte, [Aux], Aux2), append(Aux2, T, Salida), !.
+addTexto(ID, Date, Nombre, NuevoTexto, PrimeraParte, [H|T], Accesos, Salida):-
+        append(PrimeraParte, [H], Aux), addTexto(ID, Date, Nombre, NuevoTexto, Aux, T, Accesos, Salida), !.
+
+
+% Auxiliar pal restoreVersion
+getVersionByID(ID, [H|_], Salida):-
+        getVersionID(H, IdActual),
+        ID = IdActual,Salida = H, !.
+getVersionByID(_, [_|T], Salida):-
+        T = [], Salida is -1, !.
+getVersionByID(ID, [_|T], Salida):-
+        getVersionByID(ID, T, Salida).
+restoreVersion(ID, IdVersion, PrimeraParte, [Primero|T], Nombre, Salida):-
+        getIdDoc(Primero, IdDoc), getCreadorDoc(Primero, Creador),
+        ID=IdDoc, Nombre=Creador, getTextoDoc(Primero, TextoActual), getVersionsDoc(Primero, Versiones), getVersionByID(IdVersion, Versiones, VersionBuscada),
+        getVersionTexto(VersionBuscada, NuevoTexto),
+        getVersionsDoc(Primero, VersionsDoc), getNombreDoc(Primero, NombreDoc), getFechaDoc(Primero, Date),
+        last(VersionsDoc, Last),
+        getVersionID(Last, LastID),
+        LastIdAux is LastID+1,
+        append(VersionsDoc, [[LastIdAux, TextoActual]], VersionsNuevas),
+        document(ID,Creador,NombreDoc,NuevoTexto,Date,VersionsNuevas,Aux), append(PrimeraParte, [Aux], Aux2), append(Aux2, T, Salida), !.
+restoreVersion(ID, IdVersion, PrimeraParte, [Primero|T], Nombre, Salida):-
+        getIdDoc(Primero, IdDoc), getCreadorDoc(Primero, Creador), canWrite(ID, Nombre, Accesos, Usuario),
+        ID=IdDoc, Usuario\="", getTextoDoc(Primero, TextoActual), getVersionsDoc(Primero, Versiones), getVersionByID(IdVersion, Versiones, VersionBuscada),
+        getVersionTexto(VersionBuscada, NuevoTexto),
+        getVersionsDoc(Primero, VersionsDoc), getNombreDoc(Primero, NombreDoc), getFechaDoc(Primero, Date),
+        last(VersionsDoc, Last),
+        getVersionID(Last, LastID),
+        LastIdAux is LastID+1,
+        append(VersionsDoc, [[LastIdAux, TextoActual]], VersionsNuevas),
+        document(ID,Creador,NombreDoc,NuevoTexto,Date,VersionsNuevas,Aux), append(PrimeraParte, [Aux], Aux2), append(Aux2, T, Salida), !.
+restoreVersion(ID, IdVersion, PrimeraParte, [H|T], Nombre, Salida):-
+        append(PrimeraParte, [H], Aux), restoreVersion(ID, IdVersion, Aux, T, Nombre, Salida).
+%restoreVersion(1,1, [], [[0, "Pedro", "Doc1", "Texto", [1, 2, 2021], []], [1, "Juan", "Doc2", "Texto2Nuevo TextoNuevo Texto2NuevoTexto3", [4, 4, 2022], [[0, "Nuevo Texto"], [1, "Nuevo Texto2"], [2, "NuevoTexto3"]]]], "Juan", Salida), restoreVersion(1,0, [], Salida, "Juan", Salida2), restoreVersion(1,3, [], Salida2, "Juan", Salida3) ; true.
+%Salida = [[0, "Pedro", "Doc1", "Texto", [1, 2, 2021], []], [1, "Juan", "Doc2", "Nuevo Texto2", [4, 4, 2022], [[0, "Nuevo Texto"], [1, "Nuevo Texto2"], [2, "NuevoTexto3"], [3, "Texto2Nuevo TextoNuevo Texto2NuevoTexto3"]]]],
+%Salida2 = [[0, "Pedro", "Doc1", "Texto", [1, 2, 2021], []], [1, "Juan", "Doc2", "Nuevo Texto", [4, 4, 2022], [[0, "Nuevo Texto"], [1, "Nuevo Texto2"], [2, "NuevoTexto3"], [3, "Texto2Nuevo TextoNuevo Texto2NuevoTexto3"], [4, "Nuevo Texto2"]]]],
+%Salida3 = [[0, "Pedro", "Doc1", "Texto", [1, 2, 2021], []], [1, "Juan", "Doc2", "Texto2Nuevo TextoNuevo Texto2NuevoTexto3", [4, 4, 2022], [[0, "Nuevo Texto"], [1, "Nuevo Texto2"], [2, "NuevoTexto3"], [3, "Texto2Nuevo TextoNuevo Texto2NuevoTexto3"], [4, "Nuevo Texto2"], [5, "Nuevo Texto"]]]] .
+
 % Modificadores de TDA paradigmaDocs
 addUserP(Sn1, User, Sn2):-
         getNameP(Sn1, NombreP),
@@ -228,7 +270,7 @@ paradigmaDocsCreate(Sn1, Fecha, Nombre, Contenido, Sn2):-
         getLastIdDocument(Documentos, ID),
         (ID = -1),
         ID2 is ID+1,
-        document(ID2,OnlineUser,Nombre,Contenido,Fecha,[Contenido], NuevoDoc),
+        document(ID2,OnlineUser,Nombre,Contenido,Fecha,[[0, Contenido]], NuevoDoc),
         getNameP(Sn1, NombreP),
         getDateP(Sn1, Fecha),
         getUsersP(Sn1, Usuarios),
@@ -242,7 +284,7 @@ paradigmaDocsCreate(Sn1, Fecha, Nombre, Contenido, Sn2):-
         getDocumentsP(Sn1, Documentos),
         getLastIdDocument(Documentos, ID),
         ID2 is ID+1,
-        document(ID2,OnlineUser,Nombre,Contenido,Fecha,[Contenido], NuevoDoc),
+        document(ID2,OnlineUser,Nombre,Contenido,Fecha,[[0, Contenido]], NuevoDoc),
         getNameP(Sn1, NombreP),
         getDateP(Sn1, Fecha),
         getUsersP(Sn1, Usuarios),
@@ -269,5 +311,44 @@ paradigmaDocsAdd(Sn1, DocumentId, Date, ContenidoTexto, Sn2):-
         getUsersP(Sn1, Usuarios),
         getDocumentsP(Sn1, Documentos),
         getAccessesP(Sn1, Accesos),
-        addTexto(DocumentId, Date, OnlineUser, ContenidoTexto, [], Documentos, NuevoDocumentos),
+        addTexto(DocumentId, Date, OnlineUser, ContenidoTexto, [], Documentos, Accesos, NuevoDocumentos),
         Sn2 = [NombreP, Fecha, Usuarios, NuevoDocumentos, Accesos, ""], !.
+
+paradigmaDocsRestoreVersion(Sn1, DocumentId, IdVersion, Sn2):-
+        getOnlineUserP(Sn1, OnlineUser),
+        OnlineUser \= "",
+        getNameP(Sn1, NombreP),
+        getDateP(Sn1, Fecha),
+        getUsersP(Sn1, Usuarios),
+        getDocumentsP(Sn1, Documentos),
+        getAccessesP(Sn1, Accesos),
+        restoreVersion(DocumentId, IdVersion, [], Documentos, OnlineUser, NuevoDocumentos),
+        Sn2 = [NombreP, Fecha, Usuarios, NuevoDocumentos, Accesos, ""], !.
+
+
+
+
+/*paradigmaDocs("Plataforma", [1,2,2021], P1), paradigmaDocsRegister(P1, [1,2,2021], "Pedro", "Clave", P2),
+paradigmaDocsLogin(P2, "Pedro", "Clave", P3), paradigmaDocsCreate(P3, [1,2,2021], "Archivo", "Contenido", P4),
+paradigmaDocsLogin(P4, "Pedro", "Clave", P5),
+paradigmaDocsShare(P5, 0, ["w", "r"], ["Juan"], P6),
+paradigmaDocsLogin(P6, "Pedro", "Clave", P7),
+paradigmaDocsAdd(P7, 0, [2,12,2022], "Nuevo Texto1", P8),
+paradigmaDocsLogin(P8, "Pedro", "Clave", P9),
+paradigmaDocsAdd(P9, 0, [2,12,2022], "Nuevo Texto2", P10),
+paradigmaDocsLogin(P10, "Pedro", "Clave", P11),
+paradigmaDocsAdd(P11, 0, [2,12,2022], "Nuevo Texto3", P12),
+paradigmaDocsLogin(P12, "Pedro", "Clave", P13),
+paradigmaDocsRestoreVersion(P13, 0, 3, P14).*/
+
+/*paradigmaDocs("Plataforma", [1,2,2021], P1), paradigmaDocsRegister(P1, [1,2,2021], "Pedro", "Clave", P2),
+paradigmaDocsLogin(P2, "Pedro", "Clave", P3), paradigmaDocsCreate(P3, [1,2,2021], "Archivo", "Contenido", P4),
+paradigmaDocsLogin(P4, "Pedro", "Clave", P5),
+paradigmaDocsShare(P5, 0, ["w", "r"], ["Juan"], P6),
+paradigmaDocsRegister(P6, [1,2,2021], "Juan", "Clave", P7),
+paradigmaDocsLogin(P7, "Juan", "Clave", P8),
+paradigmaDocsAdd(P8, 0, [2,12,2022], "Texto de Juan", P9),
+paradigmaDocsRegister(P9, [1,2,2021], "Diego", "Clave", P10),
+paradigmaDocsLogin(P10, "Diego", "Clave", P11),
+paradigmaDocsAdd(P11, 0, [2,12,2022], "Texto de Diego", P12).
+*/
