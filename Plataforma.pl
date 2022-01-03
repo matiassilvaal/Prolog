@@ -34,6 +34,10 @@ Dominio: date List
 isDate([D,M,Y]) :-
         date(D,M,Y,_).
 
+getDia([D,_,_], D).
+getMes([_,M,_], M).
+getAnio([_,_,A], A).
+
 /*
 TDA user.
 Username: Un string que representa el nombre de usuario
@@ -72,9 +76,6 @@ getFechaDoc([_,_,_,_,FechaDoc,_], FechaDoc).
 getVersionsDoc([_,_,_,_,_,VersionsDoc], VersionsDoc).
 getVersionID([IdVersion,_], IdVersion).
 getVersionTexto([_,TextoVersion], TextoVersion).
-getFirstElement([X|_],  X).
-getLastElement([X], X):-!.
-getLastElement([_|L], X) :- getLastElement(L, X).
 
 /*
 TDA access.
@@ -110,6 +111,10 @@ getUsersP([_,_,Users,_,_,_], Users).
 getDocumentsP([_,_,_,Documents,_,_], Documents).
 getAccessesP([_,_,_,_,Accesses,_], Accesses).
 getOnlineUserP([_,_,_,_,_,User], User).
+getFirstElement([X|_],  X).
+getOthers([_|Y], Y).
+getLastElement([X], X):-!.
+getLastElement([_|L], X) :- getLastElement(L, X).
 %
 getUserPassword([[Username,Password,_]|_],Username, Password):- !.
 getUserPassword([[_,_,_]|Tail],Username,Password):-
@@ -181,7 +186,7 @@ addTexto(ID, Date, Nombre, NuevoTexto, PrimeraParte, [Primero|T], _, Salida):-
         last(VersionsDoc, Last),
         getVersionID(Last, LastID),
         LastIdAux is LastID+1,
-        append(VersionsDoc, [[LastIdAux, NuevoTexto]], VersionsNuevas), write(0),
+        append(VersionsDoc, [[LastIdAux, NuevoTexto]], VersionsNuevas),
         document(ID,Creador,NombreDoc,TextoSalida,Date,VersionsNuevas,Aux), append(PrimeraParte, [Aux], Aux2), append(Aux2, T, Salida), !.
 addTexto(ID, Date, Nombre, NuevoTexto, PrimeraParte, [Primero|T], Accesos, Salida):-
         getIdDoc(Primero, IdDoc), getCreadorDoc(Primero, Creador), canWrite(ID, Nombre, Accesos, Usuario),
@@ -205,7 +210,7 @@ getVersionByID(_, [_|T], Salida):-
         T = [], Salida is -1, !.
 getVersionByID(ID, [_|T], Salida):-
         getVersionByID(ID, T, Salida).
-restoreVersion(ID, IdVersion, PrimeraParte, [Primero|T], Nombre, Salida):-
+restoreVersion(ID, IdVersion, PrimeraParte, [Primero|T], _, Nombre, Salida):-
         getIdDoc(Primero, IdDoc), getCreadorDoc(Primero, Creador),
         ID=IdDoc, Nombre=Creador, getTextoDoc(Primero, TextoActual), getVersionsDoc(Primero, Versiones), getVersionByID(IdVersion, Versiones, VersionBuscada),
         getVersionTexto(VersionBuscada, NuevoTexto),
@@ -215,7 +220,7 @@ restoreVersion(ID, IdVersion, PrimeraParte, [Primero|T], Nombre, Salida):-
         LastIdAux is LastID+1,
         append(VersionsDoc, [[LastIdAux, TextoActual]], VersionsNuevas),
         document(ID,Creador,NombreDoc,NuevoTexto,Date,VersionsNuevas,Aux), append(PrimeraParte, [Aux], Aux2), append(Aux2, T, Salida), !.
-restoreVersion(ID, IdVersion, PrimeraParte, [Primero|T], Nombre, Salida):-
+restoreVersion(ID, IdVersion, PrimeraParte, [Primero|T], Accesos, Nombre, Salida):-
         getIdDoc(Primero, IdDoc), getCreadorDoc(Primero, Creador), canWrite(ID, Nombre, Accesos, Usuario),
         ID=IdDoc, Usuario\="", getTextoDoc(Primero, TextoActual), getVersionsDoc(Primero, Versiones), getVersionByID(IdVersion, Versiones, VersionBuscada),
         getVersionTexto(VersionBuscada, NuevoTexto),
@@ -225,12 +230,119 @@ restoreVersion(ID, IdVersion, PrimeraParte, [Primero|T], Nombre, Salida):-
         LastIdAux is LastID+1,
         append(VersionsDoc, [[LastIdAux, TextoActual]], VersionsNuevas),
         document(ID,Creador,NombreDoc,NuevoTexto,Date,VersionsNuevas,Aux), append(PrimeraParte, [Aux], Aux2), append(Aux2, T, Salida), !.
-restoreVersion(ID, IdVersion, PrimeraParte, [H|T], Nombre, Salida):-
-        append(PrimeraParte, [H], Aux), restoreVersion(ID, IdVersion, Aux, T, Nombre, Salida).
+restoreVersion(ID, IdVersion, PrimeraParte, [H|T], Accesos, Nombre, Salida):-
+        append(PrimeraParte, [H], Aux), restoreVersion(ID, IdVersion, Aux, T, Accesos, Nombre, Salida).
 %restoreVersion(1,1, [], [[0, "Pedro", "Doc1", "Texto", [1, 2, 2021], []], [1, "Juan", "Doc2", "Texto2Nuevo TextoNuevo Texto2NuevoTexto3", [4, 4, 2022], [[0, "Nuevo Texto"], [1, "Nuevo Texto2"], [2, "NuevoTexto3"]]]], "Juan", Salida), restoreVersion(1,0, [], Salida, "Juan", Salida2), restoreVersion(1,3, [], Salida2, "Juan", Salida3) ; true.
 %Salida = [[0, "Pedro", "Doc1", "Texto", [1, 2, 2021], []], [1, "Juan", "Doc2", "Nuevo Texto2", [4, 4, 2022], [[0, "Nuevo Texto"], [1, "Nuevo Texto2"], [2, "NuevoTexto3"], [3, "Texto2Nuevo TextoNuevo Texto2NuevoTexto3"]]]],
 %Salida2 = [[0, "Pedro", "Doc1", "Texto", [1, 2, 2021], []], [1, "Juan", "Doc2", "Nuevo Texto", [4, 4, 2022], [[0, "Nuevo Texto"], [1, "Nuevo Texto2"], [2, "NuevoTexto3"], [3, "Texto2Nuevo TextoNuevo Texto2NuevoTexto3"], [4, "Nuevo Texto2"]]]],
 %Salida3 = [[0, "Pedro", "Doc1", "Texto", [1, 2, 2021], []], [1, "Juan", "Doc2", "Texto2Nuevo TextoNuevo Texto2NuevoTexto3", [4, 4, 2022], [[0, "Nuevo Texto"], [1, "Nuevo Texto2"], [2, "NuevoTexto3"], [3, "Texto2Nuevo TextoNuevo Texto2NuevoTexto3"], [4, "Nuevo Texto2"], [5, "Nuevo Texto"]]]] .
+
+%[["Pedro", "Clave", [1, 2, 2021]], ["Juan", "Clave", [1, 2, 2021]], ["Diego", "Clave", [1, 2, 2021]]]
+obtenerUsuarios(Usuarios, Texto, UsuariosSalida):-
+        getFirstElement(Usuarios, Primero), getUsername(Primero, Nombre), getPassword(Primero, Clave), getUserCreation(Primero, Fecha), getDia(Fecha, Dia), getMes(Fecha, Mes), getAnio(Fecha, Anio),
+        atomics_to_string([Texto, "     Usuario: ", Nombre, "\n     Password: ", Clave, "\n     Fecha de creacion: ", Dia, "-", Mes, "-", Anio, "\n"], TextoNuevo),
+        getOthers(Usuarios, NuevosUsuarios),
+        obtenerUsuarios(NuevosUsuarios, TextoNuevo, UsuariosSalida).
+obtenerUsuarios(Usuarios, Texto, UsuariosSalida):-
+        atomics_to_string([Texto, "\n"], TextoSalida), Usuarios = [], UsuariosSalida = TextoSalida, !.
+%[[0, "Pedro", "Archivo", "ContenidoTexto de Juan", [2, 12, 2022], [[0, "Contenido"], [1, "Texto de Juan"]]], [1, "Diego", "Archivo2", "Texto2 Modificacion", [3, 12, 2022], [[0, "Archivo2"], [1, " Modificacion"]]]]
+obtenerVersiones(Versiones, Texto, VersionesSalida):-
+        getFirstElement(Versiones, Primero), getVersionID(Primero, ID), getVersionTexto(Primero, Contenido),
+        atomics_to_string([Texto, "             ID: ", ID, "\n             Contenido: ", Contenido, "\n"], TextoNuevo),
+        getOthers(Versiones, NuevasVersiones),
+        obtenerVersiones(NuevasVersiones, TextoNuevo, VersionesSalida).
+obtenerVersiones(Versiones, Texto, VersionesSalida):-
+        Versiones = [], VersionesSalida = Texto, !.
+obtenerDocumentos(Documentos, Texto, DocumentosSalida):-
+        getFirstElement(Documentos, Primero), getIdDoc(Primero, ID), getCreadorDoc(Primero, Creador), getNombreDoc(Primero, Nombre), getTextoDoc(Primero, Contenido), getFechaDoc(Primero, Fecha), getVersionsDoc(Primero, Versiones),
+        getDia(Fecha, Dia), getMes(Fecha, Mes), getAnio(Fecha, Anio), obtenerVersiones(Versiones, "", VersionesSalida),
+        atomics_to_string([Texto, "     ID: ", ID, "\n     Creador: ", Creador, "\n     Nombre del documento: ", Nombre, "\n     Contenido: ", Contenido, "\n     Ultima modificacion: ", Dia, "-", Mes, "-", Anio, "\n     Versiones: \n", VersionesSalida, "\n"], TextoNuevo),
+        getOthers(Documentos, NuevosDocumentos),
+        obtenerDocumentos(NuevosDocumentos, TextoNuevo, DocumentosSalida).
+obtenerDocumentos(Documentos, Texto, DocumentosSalida):-
+        Documentos = [], DocumentosSalida = Texto,!.
+obtenerPermisos(Permisos, Texto, PermisosSalida):-
+        getFirstElement(Permisos, Primero),
+        Primero = "w",
+        atomics_to_string([Texto, "             Permiso de escritura (w)\n"], TextoNuevo),
+        getOthers(Permisos, NuevosPermisos),
+        obtenerPermisos(NuevosPermisos, TextoNuevo, PermisosSalida).
+obtenerPermisos(Permisos, Texto, PermisosSalida):-
+        getFirstElement(Permisos, Primero),
+        Primero = "r",
+        atomics_to_string([Texto, "             Permiso de lectura (r)\n"], TextoNuevo),
+        getOthers(Permisos, NuevosPermisos),
+        obtenerPermisos(NuevosPermisos, TextoNuevo, PermisosSalida).
+obtenerPermisos(Permisos, Texto, PermisosSalida):-
+        getFirstElement(Permisos, Primero),
+        Primero = "c",
+        atomics_to_string([Texto, "             Permiso de comentario (c)\n"], TextoNuevo),
+        getOthers(Permisos, NuevosPermisos),
+        obtenerPermisos(NuevosPermisos, TextoNuevo, PermisosSalida).
+obtenerPermisos(Permisos, Texto, PermisosSalida):-
+        getFirstElement(Permisos, Primero),
+        Primero = "s",
+        atomics_to_string([Texto, "             Permiso de compartir (c)\n"], TextoNuevo),
+        getOthers(Permisos, NuevosPermisos),
+        obtenerPermisos(NuevosPermisos, TextoNuevo, PermisosSalida).
+obtenerPermisos(Permisos, Texto, PermisosSalida):-
+        getFirstElement(Permisos, Primero),
+        Primero \= "w", Primero \= "r", Primero \= "c", Primero \= "s",
+        atomics_to_string([Texto, "             Permiso especial (", Primero, ")\n"], TextoNuevo),
+        getOthers(Permisos, NuevosPermisos),
+        obtenerPermisos(NuevosPermisos, TextoNuevo, PermisosSalida).
+obtenerPermisos(Permisos, Texto, PermisosSalida):-
+        Permisos = [], PermisosSalida = Texto, !.
+obtenerAccesos(Accesos, Texto, AccesosSalida):-
+        getFirstElement(Accesos, Primero), getIdDocAccess(Primero, ID), getUsernameAccess(Primero, Nombre), getListAccess(Primero, Lista),
+        obtenerPermisos(Lista, "", PermisosSalida),
+        atomics_to_string([Texto, "     ID del documento: ", ID, "\n     Usuario: ", Nombre, "\n     Permisos:\n", PermisosSalida, "\n"], TextoNuevo),
+        getOthers(Accesos, AccesosNuevos),
+        obtenerAccesos(AccesosNuevos, TextoNuevo, AccesosSalida).
+obtenerAccesos(Accesos, Texto, AccesosSalida):-
+        Accesos = [], AccesosSalida = Texto, !.
+escribirTodo(NombreP, Fecha, Usuarios, Documentos, Accesos, StrOut):-
+        getDia(Fecha, Dia), getMes(Fecha, Mes), getAnio(Fecha, Anio), atomics_to_string([Dia, "-", Mes, "-", Anio], FechaSalida),
+        obtenerUsuarios(Usuarios, "", UsuariosSalida), obtenerDocumentos(Documentos, "", DocumentosSalida), obtenerAccesos(Accesos, "", AccesosSalida),
+        atomics_to_string(["Nombre de la plataforma: ", NombreP, "\nFecha de Creacion: ", FechaSalida, "\nUsuarios:\n", UsuariosSalida, "Documentos:\n", DocumentosSalida, "Accesos:\n", AccesosSalida], StrOut).
+
+obtenerUsuarioInfo(Usuarios, Nombre, Salida):-
+        getFirstElement(Usuarios, Primero), getUsername(Primero, Usuario), Nombre=Usuario,
+        getPassword(Primero, Clave), getUserCreation(Primero, Fecha), getDia(Fecha, Dia), getMes(Fecha, Mes), getAnio(Fecha, Anio),
+        atomics_to_string(["     Usuario: ", Nombre, "\n     Password: ", Clave, "\n     Fecha de creacion: ", Dia, "-", Mes, "-", Anio, "\n"], Salida), !.
+obtenerUsuarioInfo(Usuarios, Nombre, Salida):-
+        getOthers(Usuarios, NuevosUsuarios), obtenerUsuarioInfo(NuevosUsuarios, Nombre, Salida).
+obtenerDocumentosUsuario(Documentos, Nombre, Texto, Salida):-
+        getFirstElement(Documentos, Primero), getCreadorDoc(Primero, Creador), Nombre=Creador,
+        getIdDoc(Primero, ID), getNombreDoc(Primero, NombreDoc), getTextoDoc(Primero, Contenido), getFechaDoc(Primero, Fecha), getVersionsDoc(Primero, Versiones),
+        getDia(Fecha, Dia), getMes(Fecha, Mes), getAnio(Fecha, Anio), obtenerVersiones(Versiones, "", VersionesSalida),
+        atomics_to_string([Texto, "     ID: ", ID, "\n     Creador: ", Nombre, "\n     Nombre del documento: ", NombreDoc, "\n     Contenido: ", Contenido, "\n     Ultima modificacion: ", Dia, "-", Mes, "-", Anio, "\n     Versiones: \n", VersionesSalida, "\n"], TextoNuevo),
+        getOthers(Documentos, NuevosDocumentos),
+        obtenerDocumentosUsuario(NuevosDocumentos, Nombre, TextoNuevo, Salida), !.
+obtenerDocumentosUsuario(Documentos, Nombre, Texto, Salida):-
+        getOthers(Documentos, NuevosDocumentos),
+        obtenerDocumentosUsuario(NuevosDocumentos, Nombre, Texto, Salida), !.
+obtenerDocumentosUsuario(Documentos, _, Texto, Salida):-
+        Documentos = [], Salida = Texto, !.
+obtenerAccesosUsuario(Accesos, Nombre, Texto, Salida):-
+        getFirstElement(Accesos, Primero), getUsernameAccess(Primero, Usuario), Nombre=Usuario, getIdDocAccess(Primero, ID), getListAccess(Primero, Lista),
+        obtenerPermisos(Lista, "", PermisosSalida),
+        atomics_to_string([Texto, "     ID del documento: ", ID, "\n     Usuario: ", Nombre, "\n     Permisos:\n", PermisosSalida, "\n"], TextoNuevo),
+        getOthers(Accesos, AccesosNuevos),
+        obtenerAccesosUsuario(AccesosNuevos, Nombre, TextoNuevo, Salida), !.
+obtenerAccesosUsuario(Accesos, Nombre, Texto, Salida):-
+        getOthers(Accesos, NuevosAccesos),
+        obtenerAccesosUsuario(NuevosAccesos, Nombre, Texto, Salida), !.
+obtenerAccesosUsuario(Accesos, _, Texto, Salida):-
+        Accesos = [], Salida = Texto, !.
+escribirUsuario(Usuario, NombreP, Fecha, Usuarios, Documentos, Accesos, StrOut):-
+        getDia(Fecha, Dia), getMes(Fecha, Mes), getAnio(Fecha, Anio), atomics_to_string([Dia, "-", Mes, "-", Anio], FechaSalida),
+        obtenerUsuarioInfo(Usuarios, Usuario, UsuarioSalida), obtenerDocumentosUsuario(Documentos, Usuario, "", DocumentosSalida), obtenerAccesosUsuario(Accesos, Usuario, "", AccesosSalida),
+        atomics_to_string(["Nombre de la plataforma: ", NombreP, "\nFecha de Creacion: ", FechaSalida, "\nUsuarios:\n", UsuarioSalida, "Documentos:\n", DocumentosSalida, "Accesos:\n", AccesosSalida], StrOut).
+
+% [[0, "Juan", ["w", "r"]], [0, "Diego", ["w", "r"]], [1, "Juan", ["s", "t"]], [2, "Juan", ["w", "r"]]]
+%  ["Plataforma", [1, 2, 2021], [["Pedro", "Clave", [1, 2, 2021]], ["Juan", "Clave", [1, 2, 2021]], ["Diego", "Clave", [1, 2, 2021]]], [[0, "Pedro", "Archivo", "ContenidoTexto de Juan", [2, 12, 2022], [[0, "Contenido"], [1, "Texto de Juan"]]]], [[0, "Juan", ["w", "r"]]], "Diego"]
+%[[0, "Pedro", "Archivo", "ContenidoTexto de Juan", [2, 12, 2022], [[0, "Contenido"], [1, "Texto de Juan"]]], [1, "Pedro", "Archivo", "asd de Juan", [2, 12, 2022], [[0, "asd"], [1, " de Juan"]]], [1, "Juan", "Archivo", "ContenidoTexto de Juan", [2, 12, 2022], [[0, "Contenido"], [1, "Texto de Juan"]]]]
 
 % Modificadores de TDA paradigmaDocs
 addUserP(Sn1, User, Sn2):-
@@ -322,12 +434,28 @@ paradigmaDocsRestoreVersion(Sn1, DocumentId, IdVersion, Sn2):-
         getUsersP(Sn1, Usuarios),
         getDocumentsP(Sn1, Documentos),
         getAccessesP(Sn1, Accesos),
-        restoreVersion(DocumentId, IdVersion, [], Documentos, OnlineUser, NuevoDocumentos),
+        restoreVersion(DocumentId, IdVersion, [], Documentos, Accesos, OnlineUser, NuevoDocumentos),
         Sn2 = [NombreP, Fecha, Usuarios, NuevoDocumentos, Accesos, ""], !.
 
+paradigmaDocsToString(Sn1, StrOut):-
+        getOnlineUserP(Sn1, OnlineUser),
+        OnlineUser = "",
+        getNameP(Sn1, NombreP),
+        getDateP(Sn1, Fecha),
+        getUsersP(Sn1, Usuarios),
+        getDocumentsP(Sn1, Documentos),
+        getAccessesP(Sn1, Accesos),
+        escribirTodo(NombreP, Fecha, Usuarios, Documentos, Accesos, StrOut).
 
-
-
+paradigmaDocsToString(Sn1, StrOut):-
+        getOnlineUserP(Sn1, OnlineUser),
+        OnlineUser \= "",
+        getNameP(Sn1, NombreP),
+        getDateP(Sn1, Fecha),
+        getUsersP(Sn1, Usuarios),
+        getDocumentsP(Sn1, Documentos),
+        getAccessesP(Sn1, Accesos),
+        escribirUsuario(OnlineUser, NombreP, Fecha, Usuarios, Documentos, Accesos, StrOut).
 /*paradigmaDocs("Plataforma", [1,2,2021], P1), paradigmaDocsRegister(P1, [1,2,2021], "Pedro", "Clave", P2),
 paradigmaDocsLogin(P2, "Pedro", "Clave", P3), paradigmaDocsCreate(P3, [1,2,2021], "Archivo", "Contenido", P4),
 paradigmaDocsLogin(P4, "Pedro", "Clave", P5),
@@ -352,3 +480,14 @@ paradigmaDocsRegister(P9, [1,2,2021], "Diego", "Clave", P10),
 paradigmaDocsLogin(P10, "Diego", "Clave", P11),
 paradigmaDocsAdd(P11, 0, [2,12,2022], "Texto de Diego", P12).
 */
+
+/*paradigmaDocs("Plataforma", [1,2,2021], P1), paradigmaDocsRegister(P1, [1,2,2021], "Pedro", "Clave", P2),
+paradigmaDocsLogin(P2, "Pedro", "Clave", P3), paradigmaDocsCreate(P3, [1,2,2021], "Archivo", "Contenido", P4),
+paradigmaDocsLogin(P4, "Pedro", "Clave", P5),
+paradigmaDocsShare(P5, 0, ["w", "r"], ["Juan"], P6),
+paradigmaDocsRegister(P6, [1,2,2021], "Juan", "Clave", P7),
+paradigmaDocsLogin(P7, "Juan", "Clave", P8),
+paradigmaDocsAdd(P8, 0, [2,12,2022], "Texto de Juan", P9),
+paradigmaDocsRegister(P9, [1,2,2021], "Diego", "Clave", P10),
+paradigmaDocsToString(P10, Salida),
+write(Salida).*/
